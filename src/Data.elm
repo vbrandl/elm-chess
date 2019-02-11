@@ -156,11 +156,7 @@ allowedMoves2 field pos =
 
 
 allowedMoves : Field -> Position -> List Position
-allowedMoves field pos =
-    let
-        ( x, y ) =
-            pos
-    in
+allowedMoves field (( x, y ) as pos) =
     case Dict.get pos field of
         Nothing ->
             []
@@ -284,11 +280,8 @@ pawnMoveFn col =
 
 
 moveUntilFigure : Int -> Color -> Position -> Field -> (Int -> Int) -> (Int -> Int) -> List Position
-moveUntilFigure max col pos field fx fy =
+moveUntilFigure max (( x, y ) as pos) pos field fx fy =
     let
-        ( x, y ) =
-            pos
-
         newPos =
             ( fx x, fy y )
     in
