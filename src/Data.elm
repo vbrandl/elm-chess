@@ -69,11 +69,11 @@ opposite col =
 
 
 type Kind
-    = King
+    = King Bool
     | Queen
     | Bishop
     | Knight
-    | Rook
+    | Rook Bool
     | Pawn
 
 
@@ -127,7 +127,7 @@ figureRow col =
                     1
 
         figures =
-            zip (List.range 1 8) [ Rook, Knight, Bishop, Queen, King, Bishop, Knight, Rook ]
+            zip (List.range 1 8) [ Rook False, Knight, Bishop, Queen, King False, Bishop, Knight, Rook False ]
     in
     List.map (\( y, k ) -> ( ( x, y ), Figure col k )) figures
 
@@ -219,14 +219,14 @@ allowedMoves field (( x, y ) as pos) =
                 ( col, Bishop ) ->
                     diagonalMovement 8 col pos field
 
-                ( col, Rook ) ->
+                ( col, Rook _ ) ->
                     straightMovement 8 col pos field
 
                 ( col, Queen ) ->
                     diagonalMovement 8 col pos field
                         ++ straightMovement 8 col pos field
 
-                ( col, King ) ->
+                ( col, King _ ) ->
                     diagonalMovement 1 col pos field
                         ++ straightMovement 1 col pos field
 
@@ -280,7 +280,7 @@ pawnMoveFn col =
 
 
 moveUntilFigure : Int -> Color -> Position -> Field -> (Int -> Int) -> (Int -> Int) -> List Position
-moveUntilFigure max (( x, y ) as pos) pos field fx fy =
+moveUntilFigure max col (( x, y ) as pos) field fx fy =
     let
         newPos =
             ( fx x, fy y )
@@ -309,7 +309,7 @@ isCheck col field =
     let
         kingPos =
             Dict.toList field
-                |> List.filter (\( _, { kind, color } ) -> kind == King && color == col)
+                |> List.filter (\( _, { kind, color } ) -> isKing kind && color == col)
                 |> List.head
                 |> Maybe.map (\( pos, _ ) -> pos)
 
@@ -321,6 +321,16 @@ isCheck col field =
                 |> List.foldl (\moves acc -> acc ++ moves) []
     in
     kingPos |> Maybe.map (\pos -> List.member pos opMoves) |> Maybe.withDefault True
+
+
+isKing : Kind -> Bool
+isKing kind =
+    case kind of
+        King _ ->
+            True
+
+        _ ->
+            False
 
 
 isCheckmate : Color -> Field -> Bool
@@ -343,13 +353,13 @@ isCheckmate col field =
 toSymbol : Figure -> String
 toSymbol { color, kind } =
     case ( color, kind ) of
-        ( Black, King ) ->
+        ( Black, King _ ) ->
             "♚"
 
         ( Black, Queen ) ->
             "♛"
 
-        ( Black, Rook ) ->
+        ( Black, Rook _ ) ->
             "♜"
 
         ( Black, Bishop ) ->
@@ -361,13 +371,13 @@ toSymbol { color, kind } =
         ( Black, Pawn ) ->
             "♟"
 
-        ( White, King ) ->
+        ( White, King _ ) ->
             "♔"
 
         ( White, Queen ) ->
             "♕"
 
-        ( White, Rook ) ->
+        ( White, Rook _ ) ->
             "♖"
 
         ( White, Bishop ) ->
