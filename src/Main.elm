@@ -244,7 +244,7 @@ view model =
             List.map (\r -> tr [] (row model r)) (List.reverse (List.range 1 8))
     in
     div []
-        [ table [] rows
+        [ table [ style "border" "none", style "border-collapse" "collapse" ] rows
         , br [] []
         , Dialog.view
             (Maybe.map (viewTradeDialog model) model.tradePawn)
