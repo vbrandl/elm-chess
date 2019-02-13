@@ -121,10 +121,10 @@ fieldStyle position =
         col =
             case fieldColor position of
                 Black ->
-                    "grey"
+                    "#8B4513"
 
                 White ->
-                    "white"
+                    "#DEB887"
     in
     [ style "height" "50px"
     , style "width" "50px"
