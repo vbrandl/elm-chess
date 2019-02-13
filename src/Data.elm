@@ -3,6 +3,7 @@ module Data exposing
     , Field
     , Figure
     , Kind(..)
+    , Move(..)
     , Position
     , allowedMoves2
     , colorToString
@@ -100,9 +101,19 @@ type alias Field =
     Dict Position Figure
 
 
-performMove : Position -> Position -> Field -> Field
-performMove from to field =
-    Dict.get from field |> Maybe.map (\f -> Dict.remove from field |> Dict.insert to (moveFigure f)) |> Maybe.withDefault field
+performMove : Move -> Field -> Field
+performMove move field =
+    case move of
+        Single ( from, to ) ->
+            Dict.get from field |> Maybe.map (\f -> Dict.remove from field |> Dict.insert to (moveFigure f)) |> Maybe.withDefault field
+
+        Double ( f1, t1 ) ( f2, t2 ) ->
+            performMove (Single ( f1, t1 )) field |> performMove (Single ( f2, t2 ))
+
+
+type Move
+    = Single ( Position, Position )
+    | Double ( Position, Position ) ( Position, Position )
 
 
 init : Field
@@ -163,7 +174,7 @@ allowedMoves2 field pos =
 
         moves =
             allowedMoves field pos
-                |> List.filter (\newPos -> performMove pos newPos field |> isCheck color |> not)
+                |> List.filter (\newPos -> performMove (Single ( pos, newPos )) field |> isCheck color |> not)
     in
     moves
 

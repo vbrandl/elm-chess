@@ -44,7 +44,7 @@ update msg model =
                     { model
                         | selected = Nothing
                         , player = opposite model.player
-                        , field = performMove from to model.field
+                        , field = performMove (Single ( from, to )) model.field
                     }
 
 
