@@ -17,6 +17,7 @@ import Data
         , isCheckmate
         , opposite
         , performMove
+        , single
         , toSymbol
         )
 import Dict exposing (Dict)
@@ -35,12 +36,13 @@ type alias Model =
     { field : Field
     , selected : Maybe Position
     , player : Color
+    , tradePawn : Bool
     }
 
 
 init : Model
 init =
-    { field = Data.init, selected = Nothing, player = White }
+    { field = Data.init, selected = Nothing, player = White, tradePawn = False }
 
 
 update : Msg -> Model -> Model
@@ -58,11 +60,19 @@ update msg model =
                     model
 
                 Just from ->
-                    { model
-                        | selected = Nothing
-                        , player = opposite model.player
-                        , field = performMove (Single ( from, to )) model.field
-                    }
+                    if not model.tradePawn then
+                        { model
+                            | selected = Nothing
+                            , player = opposite model.player
+                            , field = performMove (single from to) model.field
+                        }
+
+                    else
+                        { model
+                            | selected = Nothing
+                            , field = performMove (single from to) model.field
+                            , tradePawn = True
+                        }
 
 
 isSelected : Model -> Position -> Bool
