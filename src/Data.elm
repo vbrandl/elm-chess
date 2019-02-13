@@ -83,13 +83,26 @@ type alias Figure =
     }
 
 
+moveFigure : Figure -> Figure
+moveFigure fig =
+    case fig.kind of
+        Rook _ ->
+            { fig | kind = Rook True }
+
+        King _ ->
+            { fig | kind = King True }
+
+        _ ->
+            fig
+
+
 type alias Field =
     Dict Position Figure
 
 
 performMove : Position -> Position -> Field -> Field
 performMove from to field =
-    Dict.get from field |> Maybe.map (\f -> Dict.remove from field |> Dict.insert to f) |> Maybe.withDefault field
+    Dict.get from field |> Maybe.map (\f -> Dict.remove from field |> Dict.insert to (moveFigure f)) |> Maybe.withDefault field
 
 
 init : Field
