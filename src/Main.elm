@@ -1,12 +1,28 @@
 module Main exposing (Msg(..))
 
 import Browser
-import Data exposing (..)
+import Data
+    exposing
+        ( Color(..)
+        , Field
+        , Figure
+        , Kind(..)
+        , Move(..)
+        , Position
+        , allowedMoves2
+        , colorToString
+        , fieldColor
+        , init
+        , isCheck
+        , isCheckmate
+        , opposite
+        , performMove
+        , toSymbol
+        )
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (disabled, style)
 import Html.Events exposing (onClick)
-import List.Extra exposing (zip)
 
 
 type Msg
@@ -27,6 +43,7 @@ init =
     { field = Data.init, selected = Nothing, player = White }
 
 
+update : Msg -> Model -> Model
 update msg model =
     case msg of
         Reset ->
@@ -196,5 +213,6 @@ view model =
         ]
 
 
+main : Program () Model Msg
 main =
     Browser.sandbox { init = init, update = update, view = view }
