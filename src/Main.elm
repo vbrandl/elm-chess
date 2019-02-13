@@ -15,9 +15,11 @@ import Data
         , init
         , isCheck
         , isCheckmate
+        , isPawn
         , opposite
         , performMove
         , single
+        , toFirstPos
         , toSymbol
         )
 import Dialog
@@ -91,7 +93,7 @@ update msg model =
                                 == colorLastRow
                                 && (Dict.get from model.field
                                         |> Maybe.map .kind
-                                        |> Maybe.map ((==) Pawn)
+                                        |> Maybe.map isPawn
                                         |> Maybe.withDefault False
                                    )
                     in
@@ -149,7 +151,9 @@ cellContent model pos =
                     []
 
         allowed =
-            Maybe.map (allowedMoves2 model.field) model.selected |> Maybe.withDefault []
+            Maybe.map (allowedMoves2 model.field) model.selected
+                |> Maybe.withDefault []
+                |> List.map toFirstPos
     in
     case Dict.get pos model.field of
         Just fig ->

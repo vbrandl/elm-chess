@@ -11,9 +11,11 @@ module Data exposing
     , init
     , isCheck
     , isCheckmate
+    , isPawn
     , opposite
     , performMove
     , single
+    , toFirstPos
     , toSymbol
     )
 
@@ -76,13 +78,39 @@ type Kind
     | Bishop
     | Knight
     | Rook Bool
-    | Pawn
+    | Pawn Bool
+
+
+isPawn : Kind -> Bool
+isPawn kind =
+    case kind of
+        Pawn _ ->
+            True
+
+        _ ->
+            False
 
 
 type alias Figure =
     { color : Color
     , kind : Kind
     }
+
+
+hasMoved : Figure -> Bool
+hasMoved { color, kind } =
+    case kind of
+        King False ->
+            False
+
+        Rook False ->
+            False
+
+        Pawn False ->
+            False
+
+        _ ->
+            True
 
 
 moveFigure : Figure -> Figure
@@ -93,6 +121,9 @@ moveFigure fig =
 
         King _ ->
             { fig | kind = King True }
+
+        Pawn _ ->
+            { fig | kind = Pawn True }
 
         _ ->
             fig
@@ -115,6 +146,26 @@ performMove move field =
 type Move
     = Single ( Position, Position )
     | Double ( Position, Position ) ( Position, Position )
+
+
+toFirstPos : Move -> Position
+toFirstPos move =
+    case move of
+        Single ( _, to ) ->
+            to
+
+        Double ( _, to ) _ ->
+            to
+
+
+isSingle : Move -> Bool
+isSingle move =
+    case move of
+        Single _ ->
+            True
+
+        _ ->
+            False
 
 
 single : Position -> Position -> Move
@@ -142,19 +193,24 @@ pawnRow col =
                 White ->
                     2
     in
-    List.map (\y -> ( ( x, y ), Figure col Pawn )) (List.range 1 8)
+    List.map (\y -> ( ( x, y ), Figure col (Pawn False) )) (List.range 1 8)
+
+
+xPosByColor : Color -> Int
+xPosByColor col =
+    case col of
+        Black ->
+            8
+
+        White ->
+            1
 
 
 figureRow : Color -> List ( Position, Figure )
 figureRow col =
     let
         x =
-            case col of
-                Black ->
-                    8
-
-                White ->
-                    1
+            xPosByColor col
 
         figures =
             zip (List.range 1 8) [ Rook False, Knight, Bishop, Queen, King False, Bishop, Knight, Rook False ]
@@ -172,20 +228,22 @@ isInitialPos fig pos =
     Dict.get pos init |> Maybe.map ((==) fig) |> Maybe.withDefault False
 
 
-allowedMoves2 : Field -> Position -> List Position
+allowedMoves2 : Field -> Position -> List Move
 allowedMoves2 field pos =
     let
         color =
             Dict.get pos field |> Maybe.map .color |> Maybe.withDefault Black
-
-        moves =
-            allowedMoves field pos
-                |> List.filter (\newPos -> performMove (single pos newPos) field |> isCheck color |> not)
     in
-    moves
+    allowedMoves field pos
+        |> List.filter
+            (\move ->
+                performMove move field
+                    |> isCheck color
+                    |> not
+            )
 
 
-allowedMoves : Field -> Position -> List Position
+allowedMoves : Field -> Position -> List Move
 allowedMoves field (( x, y ) as pos) =
     case Dict.get pos field of
         Nothing ->
@@ -193,7 +251,7 @@ allowedMoves field (( x, y ) as pos) =
 
         Just fig ->
             case ( fig.color, fig.kind ) of
-                ( col, Pawn ) ->
+                ( col, Pawn moved ) ->
                     let
                         f =
                             pawnMoveFn col
@@ -218,12 +276,12 @@ allowedMoves field (( x, y ) as pos) =
                             else
                                 []
                     in
-                    (if isInitialPos fig pos && not (Dict.member ( f x 1, y ) field) && not (Dict.member ( f x 2, y ) field) then
+                    ((if not moved && not (isOpponent ( f x 2, y ) field col) then
                         [ ( f x 2, y ) ]
 
-                     else
+                      else
                         []
-                    )
+                     )
                         ++ moveLeft
                         ++ moveRight
                         ++ (if not (Dict.member ( f x 1, y ) field) then
@@ -232,6 +290,8 @@ allowedMoves field (( x, y ) as pos) =
                             else
                                 []
                            )
+                    )
+                        |> List.map (\to -> single pos to)
 
                 ( col, Knight ) ->
                     List.filter
@@ -245,6 +305,7 @@ allowedMoves field (( x, y ) as pos) =
                          -- or empty field
                         )
                         [ ( x + 2, y + 1 ), ( x + 2, y - 1 ), ( x - 2, y + 1 ), ( x - 2, y - 1 ), ( x + 1, y + 2 ), ( x + 1, y - 2 ), ( x - 1, y + 2 ), ( x - 1, y - 2 ) ]
+                        |> List.map (\to -> single pos to)
 
                 ( col, Bishop ) ->
                     diagonalMovement 8 col pos field
@@ -256,12 +317,52 @@ allowedMoves field (( x, y ) as pos) =
                     diagonalMovement 8 col pos field
                         ++ straightMovement 8 col pos field
 
-                ( col, King _ ) ->
+                ( col, King moved ) ->
+                    let
+                        figRow =
+                            xPosByColor col
+
+                        leftRookNotMoved =
+                            Dict.get ( figRow, 1 ) field
+                                |> Maybe.map hasMoved
+                                |> Maybe.withDefault False
+
+                        rightRookNotMoved =
+                            Dict.get ( figRow, 8 ) field
+                                |> Maybe.map hasMoved
+                                |> Maybe.withDefault False
+
+                        leftFree =
+                            [ ( figRow, 2 ), ( figRow, 3 ), ( figRow, 4 ) ]
+                                |> List.map (\p -> not (Dict.member p field))
+                                |> List.foldl (\t acc -> t && acc) True
+
+                        rightFree =
+                            [ ( figRow, 6 ), ( figRow, 7 ) ]
+                                |> List.map (\p -> not (Dict.member p field))
+                                |> List.foldl (\t acc -> t && acc) True
+
+                        leftCastle =
+                            if not moved && leftRookNotMoved && leftFree then
+                                [ Double ( ( figRow, 5 ), ( figRow, 2 ) ) ( ( figRow, 1 ), ( figRow, 3 ) ) ]
+
+                            else
+                                []
+
+                        rightCastle =
+                            if not moved && rightRookNotMoved && rightFree then
+                                [ Double ( ( figRow, 5 ), ( figRow, 7 ) ) ( ( figRow, 8 ), ( figRow, 6 ) ) ]
+
+                            else
+                                []
+                    in
                     diagonalMovement 1 col pos field
                         ++ straightMovement 1 col pos field
+                        ++ leftCastle
+                        ++ rightCastle
 
 
-diagonalMovement : Int -> Color -> Position -> Field -> List Position
+diagonalMovement : Int -> Color -> Position -> Field -> List Move
 diagonalMovement max col pos field =
     let
         moveFn =
@@ -270,7 +371,7 @@ diagonalMovement max col pos field =
     moveFn add1 add1 ++ moveFn add1 sub1 ++ moveFn sub1 add1 ++ moveFn sub1 sub1
 
 
-straightMovement : Int -> Color -> Position -> Field -> List Position
+straightMovement : Int -> Color -> Position -> Field -> List Move
 straightMovement max col pos field =
     let
         moveFn =
@@ -309,7 +410,7 @@ pawnMoveFn col =
             (-)
 
 
-moveUntilFigure : Int -> Color -> Position -> Field -> (Int -> Int) -> (Int -> Int) -> List Position
+moveUntilFigure : Int -> Color -> Position -> Field -> (Int -> Int) -> (Int -> Int) -> List Move
 moveUntilFigure max col (( x, y ) as pos) field fx fy =
     let
         newPos =
@@ -323,13 +424,13 @@ moveUntilFigure max col (( x, y ) as pos) field fx fy =
             |> Maybe.map
                 (\other ->
                     if other.color /= col then
-                        [ newPos ]
+                        [ single pos newPos ]
 
                     else
                         []
                 )
             |> Maybe.withDefault
-                ([ newPos ]
+                ([ single pos newPos ]
                     ++ moveUntilFigure (max - 1) col newPos field fx fy
                 )
 
@@ -349,6 +450,7 @@ isCheck col field =
                 |> List.map (\( pos, _ ) -> pos)
                 |> List.map (\pos -> allowedMoves field pos)
                 |> List.foldl (\moves acc -> acc ++ moves) []
+                |> List.map toFirstPos
     in
     kingPos |> Maybe.map (\pos -> List.member pos opMoves) |> Maybe.withDefault True
 
@@ -398,7 +500,7 @@ toSymbol { color, kind } =
         ( Black, Knight ) ->
             "♞"
 
-        ( Black, Pawn ) ->
+        ( Black, Pawn _ ) ->
             "♟"
 
         ( White, King _ ) ->
@@ -416,5 +518,5 @@ toSymbol { color, kind } =
         ( White, Knight ) ->
             "♘"
 
-        ( White, Pawn ) ->
+        ( White, Pawn _ ) ->
             "♙"
