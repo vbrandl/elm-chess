@@ -20,6 +20,7 @@ import Data
         , single
         , toSymbol
         )
+import Dialog
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (disabled, style)
@@ -30,19 +31,20 @@ type Msg
     = Select Position
     | Move Position
     | Reset
+    | Trade Figure
 
 
 type alias Model =
     { field : Field
     , selected : Maybe Position
     , player : Color
-    , tradePawn : Bool
+    , tradePawn : Maybe Position
     }
 
 
 init : Model
 init =
-    { field = Data.init, selected = Nothing, player = White, tradePawn = False }
+    { field = Data.init, selected = Nothing, player = White, tradePawn = Nothing }
 
 
 update : Msg -> Model -> Model
@@ -54,24 +56,57 @@ update msg model =
         Select pos ->
             { model | selected = Just pos }
 
+        Trade fig ->
+            case model.tradePawn of
+                Nothing ->
+                    model
+
+                Just pos ->
+                    { model
+                        | field = Dict.insert pos fig model.field
+                        , tradePawn = Nothing
+                        , player = opposite model.player
+                    }
+
         Move to ->
             case model.selected of
                 Nothing ->
                     model
 
                 Just from ->
-                    if not model.tradePawn then
+                    let
+                        ( tx, _ ) =
+                            to
+
+                        colorLastRow =
+                            case model.player of
+                                White ->
+                                    8
+
+                                Black ->
+                                    1
+
+                        pawnReachedLastRow =
+                            tx
+                                == colorLastRow
+                                && (Dict.get from model.field
+                                        |> Maybe.map .kind
+                                        |> Maybe.map ((==) Pawn)
+                                        |> Maybe.withDefault False
+                                   )
+                    in
+                    if pawnReachedLastRow then
                         { model
                             | selected = Nothing
-                            , player = opposite model.player
                             , field = performMove (single from to) model.field
+                            , tradePawn = Just to
                         }
 
                     else
                         { model
                             | selected = Nothing
+                            , player = opposite model.player
                             , field = performMove (single from to) model.field
-                            , tradePawn = True
                         }
 
 
@@ -170,6 +205,38 @@ row model x =
     List.map (\pos -> td (fieldStyle pos) [ cellContent model pos ]) (List.map (\y -> ( x, y )) ys)
 
 
+viewTradeDialog : Model -> Position -> Dialog.Config Msg
+viewTradeDialog model pos =
+    let
+        figs =
+            List.map (\k -> { kind = k, color = model.player }) [ Queen, Rook True, Bishop, Knight ]
+    in
+    { closeMessage = Nothing
+    , containerClass = Nothing
+    , footer = []
+    , header = Just (text "Trade Pawn")
+    , body =
+        Just
+            (div []
+                (figs
+                    |> List.map
+                        (\fig ->
+                            button
+                                [ onClick (Trade fig)
+                                , style "text-align" "center"
+                                , style "font-weight" "bold"
+                                , style "font-size" "40px"
+                                , style "background-color" "Transparent"
+                                , style "outline" "none"
+                                , style "border" "none"
+                                ]
+                                [ text (toSymbol fig) ]
+                        )
+                )
+            )
+    }
+
+
 view : Model -> Html Msg
 view model =
     let
@@ -178,6 +245,10 @@ view model =
     in
     div []
         [ table [] rows
+        , br [] []
+        , Dialog.view
+            (Maybe.map (viewTradeDialog model) model.tradePawn)
+        , br [] []
         , div [] [ text ("Player: " ++ colorToString model.player) ]
         , br [] []
         , div []
